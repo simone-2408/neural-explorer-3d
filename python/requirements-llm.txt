@@ -1,0 +1,8 @@
+# Backend of the LLM and Experiments tabs (python/server). Install into python/.venv:
+#   npm run llm:setup        (= python3 -m venv --system-site-packages python/.venv && pip install -r this file)
+# GPT-2 small (~550 MB) is downloaded from Hugging Face on first start into ~/.cache/huggingface.
+torch>=2.0
+transformers>=4.46,<5
+fastapi>=0.110
+uvicorn>=0.29
+numpy

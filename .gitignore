@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output and caches
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ipynb_checkpoints/
+python/out/
+
+# Model checkpoints (the app only needs the exported JSON in public/models)
+*.pt
+*.pth
+*.ckpt
+*.safetensors

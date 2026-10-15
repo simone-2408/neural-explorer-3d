@@ -1,0 +1,2 @@
+# PyTorch bridges (mlp_bridge.py, cnn_rnn_bridge.py) and the toy Transformer's training (toy_transformer/).
+torch>=2.0

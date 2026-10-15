@@ -1,0 +1,53 @@
+[
+  {
+    "id": "capital",
+    "label": "A fact?",
+    "text": "The capital of France is",
+    "description": "GPT-2 small is not sure: “ Paris” is only fifth. Compare with the toy Transformer.",
+    "file": "capital.json"
+  },
+  {
+    "id": "ioi",
+    "label": "Who gets the drink?",
+    "text": "When Mary and John went to the store, John gave a drink to",
+    "description": "Indirect object: the model must pick the name that was not repeated (“ Mary”).",
+    "file": "ioi.json",
+    "experiment": "gpt2-ioi-movers"
+  },
+  {
+    "id": "induction",
+    "label": "Repeated text",
+    "text": "The cat sat on the mat. The cat sat on the",
+    "description": "Copying from earlier in the context: look for heads that attend to the token after the previous “the”.",
+    "file": "induction.json",
+    "experiment": "gpt2-induction"
+  },
+  {
+    "id": "days",
+    "label": "Days of the week",
+    "text": "Monday, Tuesday, Wednesday,",
+    "description": "A sequence: the logit lens shows the answer appearing only in the last layers.",
+    "file": "days.json"
+  },
+  {
+    "id": "winograd",
+    "label": "What is “it”?",
+    "text": "The trophy doesn't fit into the suitcase because it is too",
+    "description": "A classic ambiguity test: GPT-2 small splits its bet between “small” and “big”.",
+    "file": "winograd.json"
+  },
+  {
+    "id": "italian",
+    "label": "Not English",
+    "text": "La capitale d'Italia è",
+    "description": "Byte-level BPE: unfamiliar words break into many pieces, “è” into two raw bytes.",
+    "file": "italian.json"
+  },
+  {
+    "id": "code",
+    "label": "Code",
+    "text": "def add(a, b):\n    return",
+    "description": "Indentation and newlines are tokens too.",
+    "file": "code.json"
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "name": "neural-explorer-3d",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Interactive 3D explorer to learn how neural networks, training, backpropagation, Transformers and LLMs work.",
+  "license": "MIT",
+  "author": "Simone Suma",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:parity": "vitest run --config vitest.parity.config.ts",
+    "llm": "cd python && .venv/bin/python -m uvicorn server.app:app --host 127.0.0.1 --port 8000",
+    "llm:setup": "python3 -m venv --system-site-packages python/.venv && python/.venv/bin/pip install -r python/requirements-llm.txt",
+    "llm:demos": "cd python && .venv/bin/python -m server.record_demos"
+  },
+  "dependencies": {
+    "katex": "^0.19.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "@types/three": "^0.186.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}
