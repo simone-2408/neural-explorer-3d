@@ -7,6 +7,19 @@ import type { DemoEntry, GenerateResult, LlmAnalysis, LlmAnalysisJson, LlmStatus
 
 const API = 'api/llm';
 
+/**
+ * Built for a static host without the Python backend (the online demo, see
+ * .github/workflows/pages.yml): the backend is never looked for, and messages
+ * point to the instructions for running GPT-2 locally instead of `npm run llm`.
+ */
+export const ONLINE_DEMO = import.meta.env.VITE_ONLINE_DEMO === 'true';
+
+/** Instructions for running GPT-2 locally, in the README of the repository the demo was built from. */
+export const LOCAL_SETUP_URL: string | null = import.meta.env.VITE_REPO_URL ? `${import.meta.env.VITE_REPO_URL}#optional-run-gpt-2-locally` : null;
+
+/** How to get live GPT-2, to complete a sentence: "…, or <hint>." */
+export const BACKEND_HINT = ONLINE_DEMO ? 'run the app on your computer with its Python backend (see the README)' : 'start the backend with “npm run llm”';
+
 function decodeBase64(data: string): ArrayBuffer {
   const binary = atob(data);
   const bytes = new Uint8Array(binary.length);
@@ -56,6 +69,7 @@ export async function post<T>(path: string, body: unknown, signal?: AbortSignal)
 
 /** null when the backend is not reachable (not started, or a static build without proxy). */
 export async function fetchStatus(timeoutMs = 2500): Promise<LlmStatus | null> {
+  if (ONLINE_DEMO) return null;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

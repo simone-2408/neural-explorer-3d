@@ -10,7 +10,7 @@
 import type { Workspace, WorkspaceHost } from '../../app/workspace';
 import { DisposeBag } from '../../core/DisposeBag';
 import { Emitter } from '../../core/Emitter';
-import { analyze, fetchStatus, generate, loadDemo, loadDemoIndex, showToken } from '../../llm/client';
+import { analyze, fetchStatus, generate, loadDemo, loadDemoIndex, ONLINE_DEMO, showToken } from '../../llm/client';
 import type { DemoEntry, GenerateResult, LlmAnalysis, LlmStatus } from '../../llm/types';
 import type { CameraView } from '../../three/CameraController';
 import { EmbeddingView, type EmbeddingPick, type EmbeddingPoint } from '../../three/EmbeddingView';
@@ -229,7 +229,13 @@ export class LlmWorkspace implements Workspace {
   /** Analyzes `text` with the backend. */
   async run(text: string, keepHistory = false): Promise<void> {
     if (!this.live) {
-      toast('The GPT-2 backend is not running: start it with “npm run llm” (see the panel on the left), or pick a recorded example.', 'info', 5000);
+      toast(
+        ONLINE_DEMO
+          ? 'This online demo has no GPT-2 backend: pick a recorded example, or run the app on your computer (see the panel on the left).'
+          : 'The GPT-2 backend is not running: start it with “npm run llm” (see the panel on the left), or pick a recorded example.',
+        'info',
+        5000,
+      );
       return;
     }
     if (!keepHistory) this.history.length = 0;

@@ -4,6 +4,7 @@ import { gpt2Tokenize } from '../../experiments/gpt2Engine';
 import { METRICS } from '../../experiments/metrics';
 import { TENSORS } from '../../experiments/toyEngine';
 import type { ExperimentModel, Intervention, MetricId, TensorId, TokenRef } from '../../experiments/types';
+import { LOCAL_SETUP_URL, ONLINE_DEMO } from '../../llm/client';
 import { isSpecial } from '../../transformer/analysis';
 import { h, replaceChildren } from '../../ui/dom';
 import { icon } from '../../ui/icons';
@@ -51,12 +52,19 @@ export class ModelPanel implements Panel {
     }
     const s = ws.status;
     const state = !ws.checked ? 'checking' : !ws.online ? 'offline' : s?.error ? 'error' : s?.ready ? 'ready' : 'loading';
-    const labels = { ready: 'GPT-2 small running locally', loading: 'GPT-2 small is loading…', error: 'The backend could not load the model', offline: 'Backend not running — recorded presets only', checking: 'Looking for the local backend…' };
+    const labels = { ready: 'GPT-2 small running locally', loading: 'GPT-2 small is loading…', error: 'The backend could not load the model', offline: ONLINE_DEMO ? 'Online demo — recorded presets only' : 'Backend not running — recorded presets only', checking: 'Looking for the local backend…' };
     replaceChildren(
       this.body,
       h('div', { class: `backend__status is-${state}` }, h('span', { class: 'backend__dot', 'aria-hidden': 'true' }), labels[state]),
       state === 'ready' && s?.config ? h('div', { class: 'muted' }, `${formatCount(s.config.parameters)} parameters · ${s.config.layers} layers × ${s.config.heads} heads · MLP ${formatCount(s.config.dMlp)} neurons`) : null,
-      state === 'offline'
+      state === 'offline' && ONLINE_DEMO
+        ? h(
+            'div',
+            { class: 'muted' },
+            'The presets below were recorded with GPT-2 small. To run your own experiments, run the app on your computer with its GPT-2 backend',
+            LOCAL_SETUP_URL ? [' (', h('a', { href: LOCAL_SETUP_URL, target: '_blank', rel: 'noopener' }, 'how'), ').'] : '.',
+          )
+        : state === 'offline'
         ? h('div', { class: 'muted' }, 'The presets below were recorded with GPT-2 small. To run your own experiments, start the backend: ', h('code', null, 'npm run llm'), ' (first time: ', h('code', null, 'npm run llm:setup'), ').')
         : null,
       state === 'error' ? note(s?.error ?? '', 'warning') : null,

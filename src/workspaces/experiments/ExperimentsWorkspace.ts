@@ -21,7 +21,7 @@ import { loadRecordedExperiments, toyPresets, type ExperimentPreset, type Record
 import { newId, parseExperiment, serializeExperiment } from '../../experiments/serialization';
 import { runToyExperiment, sameComponent, toyCurve, toyNeuronScan, toySweep, type ToyExperimentRun } from '../../experiments/toyEngine';
 import type { AttentionPair, ComponentRef, Experiment, ExperimentModel, ExperimentResult, Intervention, InterventionSpec, MetricId, NeuronScan, ScaleCurve, SweepResult, TensorId, TokenRef } from '../../experiments/types';
-import { fetchStatus, showToken } from '../../llm/client';
+import { BACKEND_HINT, fetchStatus, showToken } from '../../llm/client';
 import type { LlmStatus } from '../../llm/types';
 import type { CameraView } from '../../three/CameraController';
 import { ExperimentView, type ComponentDisplay, type ExperimentPick } from '../../three/ExperimentView';
@@ -497,7 +497,7 @@ export class ExperimentsWorkspace implements Workspace {
   /** Applies a change to the current experiment; consecutive changes of one control are undone together. */
   edit(change: (e: Experiment) => void, o: { key?: string; immediate?: boolean } = {}): void {
     if (!this.editable) {
-      toast('Start the GPT-2 backend (npm run llm) to change this experiment; recorded presets are read-only.', 'info', 4500);
+      toast(`Recorded presets are read-only: to change this experiment, ${BACKEND_HINT}.`, 'info', 4500);
       return;
     }
     const now = performance.now();
@@ -689,7 +689,7 @@ export class ExperimentsWorkspace implements Workspace {
     try {
       const experiment = parseExperiment(JSON.parse(await file.text()));
       if (experiment.model === 'gpt2' && !this.live) {
-        toast('This experiment needs GPT-2: start the backend (npm run llm) and load it again.', 'warning', 5000);
+        toast(`This experiment needs GPT-2: ${BACKEND_HINT}, then load it again.`, 'warning', 5000);
         return;
       }
       this.history[experiment.model].push(structuredClone(this.experiments[experiment.model]));

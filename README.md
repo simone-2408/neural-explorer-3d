@@ -5,6 +5,7 @@
 </p>
 
 <p align="center">
+  <a href="https://simone-2408.github.io/neural-explorer-3d/"><strong>▶ Try it in your browser</strong></a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#a-tour">Tour</a> ·
   <a href="#learn-13-guided-lessons">Lessons</a> ·
@@ -20,7 +21,11 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-22C55E"></a>
 </p>
 
-![The Neural Network tab: a small network in 3D and, on the right, one neuron explained on three levels — what you see, its numbers, and the formula with those numbers](docs/images/network.png)
+<p align="center">
+  <a href="https://simone-2408.github.io/neural-explorer-3d/"><img src="docs/images/demo.gif" width="100%" alt="Neural Explorer 3D in action: a network learning two intertwined spirals, a forward pass through a 4-16-16-3 network, a 3×3 filter sliding over a digit, and GPT-2's prediction forming layer by layer"></a>
+  <br>
+  <sub>A network learning two spirals · a forward pass, layer by layer · a convolution filter sliding over a digit · GPT-2's answer forming layer after layer (logit lens)</sub>
+</p>
 
 Neural Explorer 3D is an educational web app. You build, train and take apart real models — a multilayer
 perceptron, a convolutional network, a recurrent network, a small Transformer and GPT-2 — and walk through
@@ -49,8 +54,12 @@ PyTorch; GPT-2 runs in an optional local Python backend, or is shown from record
 
 ## Quick start
 
-Requirements: [Node.js](https://nodejs.org/) 20.19+ (or 22.12+) with npm, and a desktop browser with WebGL 2.
-Clone the repository, then:
+To look around, nothing needs installing: the [**online demo**](https://simone-2408.github.io/neural-explorer-3d/)
+runs entirely in your browser (a desktop browser with WebGL 2). Online, the LLM and Experiments tabs show
+GPT-2 results recorded in advance; everything else is computed live.
+
+To run it on your computer — and analyze your own text with GPT-2 — you need [Node.js](https://nodejs.org/)
+20.19+ (or 22.12+) with npm. Clone the repository, then:
 
 ```bash
 npm install
@@ -92,14 +101,18 @@ to live computation — your own prompts, text generation, any intervention. Sto
 | `npm run llm` | starts the GPT-2 backend on http://127.0.0.1:8000 |
 | `npm run llm:demos` | re-records the GPT-2 examples and experiment presets in `public/llm-demo/` |
 
-`npm run build` produces a static site that works from any web server or sub-folder (GitHub Pages included).
-Without the backend, the LLM and Experiments tabs use the recordings.
+`npm run build` produces a static site that works from any web server or sub-folder. Without the backend, the
+LLM and Experiments tabs use the recordings. The online demo is built this way and published to GitHub Pages
+by [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to `main`, after the unit tests
+pass.
 
 ## A tour
 
 ### Neural Network
 
-*(screenshot at the top)* Layers run left to right; neurons are spheres, weights are lines (thickness ∝ |w|,
+![The Neural Network tab: a small network in 3D and, on the right, one neuron explained on three levels — what you see, its numbers, and the formula with those numbers](docs/images/network.png)
+
+Layers run left to right; neurons are spheres, weights are lines (thickness ∝ |w|,
 colour = sign, negative weights also dashed). Click a neuron to see its inputs, weights, contributions, bias,
 weighted sum, activation and output, with the formula filled in; drag any slider and the whole network
 recomputes. *Forward* animates the computation layer by layer; *Follow* highlights where a value comes from
@@ -294,6 +307,8 @@ Python is optional and used for three things (details in [`python/README.md`](py
 ## Project structure
 
 ```
+├── .github/
+│   └── workflows/pages.yml     builds and publishes the online demo (GitHub Pages)
 ├── index.html
 ├── src/
 │   ├── main.ts                 entry point

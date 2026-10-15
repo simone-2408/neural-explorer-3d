@@ -1,5 +1,6 @@
 /** Experiments inspector with nothing selected: the experiment, its measured effect and how to read it. */
 import { METRICS } from '../../../experiments/metrics';
+import { BACKEND_HINT } from '../../../llm/client';
 import { h } from '../../../ui/dom';
 import type { InspectorView } from '../../../ui/InspectorPanel';
 import { tex } from '../../../ui/tex';
@@ -69,7 +70,7 @@ export function overviewInspector(ws: ExperimentsWorkspace): InspectorView {
               )
             : paragraph('None yet: the two runs are identical. Pick a tile with a long bar and switch it off.'),
         )
-      : block(2, null, paragraph(ws.busy ? 'Running the experiment…' : gpt2 && !ws.live ? 'This GPT-2 experiment has no recording. Pick a ready-made experiment on the left, or start the backend with npm run llm.' : 'No result yet.')),
+      : block(2, null, paragraph(ws.busy ? 'Running the experiment…' : gpt2 && !ws.live ? `This GPT-2 experiment has no recording. Pick a ready-made experiment on the left, or ${BACKEND_HINT}.` : 'No result yet.')),
     block(
       3,
       null,

@@ -1,6 +1,7 @@
 /** Bottom bar of the Experiments workspace: the measured change, the baseline of the bars, a legend. */
 import { DisposeBag } from '../../core/DisposeBag';
 import { METRICS } from '../../experiments/metrics';
+import { BACKEND_HINT } from '../../llm/client';
 import { h, replaceChildren } from '../../ui/dom';
 import { segmented, type Segmented } from '../../ui/widgets';
 import type { Panel } from '../network/context';
@@ -46,7 +47,7 @@ export class ExperimentBar implements Panel {
       h('span', { class: 'pipeline__badge' }, ws.busy ? '…' : 'Δ'),
       r
         ? h('span', null, h('strong', null, ws.summary()), h('span', { class: 'muted' }, ` — ${ws.experiment.interventions.filter((i) => i.enabled).length || 'no'} intervention(s), ${source}${ws.busy ? ' · updating…' : ''}`))
-        : h('span', null, ws.busy ? 'Running the experiment…' : ws.modelKind === 'gpt2' && !ws.live ? 'Start the backend (npm run llm) to run your own GPT-2 experiments, or pick a recorded preset.' : 'No result yet.'),
+        : h('span', null, ws.busy ? 'Running the experiment…' : ws.modelKind === 'gpt2' && !ws.live ? `To run your own GPT-2 experiments, ${BACKEND_HINT}; or pick a recorded preset.` : 'No result yet.'),
     );
     const signed = METRICS[ws.metric].signed;
     replaceChildren(

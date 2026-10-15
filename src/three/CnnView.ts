@@ -168,7 +168,8 @@ export class CnnView {
 
   bounds(): { min: Vec3; max: Vec3 } {
     const half = Math.max(2, ...this.stages.map((s) => this.rowWidth(s) / 2));
-    return { min: [-half - 3.2, -2.2 - (this.stages[0] ? (this.stages[0].size * P) / 2 : 0), -MAX_Z], max: [half + 0.8, (this.rowY[this.rowY.length - 1] ?? 0) + 1.6, MAX_Z] };
+    // The extra room on the left keeps the row titles (HTML labels left of each row) in view.
+    return { min: [-half - 4.4, -2.2 - (this.stages[0] ? (this.stages[0].size * P) / 2 : 0), -MAX_Z], max: [half + 0.8, (this.rowY[this.rowY.length - 1] ?? 0) + 1.6, MAX_Z] };
   }
 
   private computeLayout(): void {

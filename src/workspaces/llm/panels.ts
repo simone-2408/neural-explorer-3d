@@ -1,6 +1,6 @@
 /** Left-panel sections of the LLM workspace. */
 import { DisposeBag } from '../../core/DisposeBag';
-import { showToken } from '../../llm/client';
+import { LOCAL_SETUP_URL, ONLINE_DEMO, showToken } from '../../llm/client';
 import { h, replaceChildren } from '../../ui/dom';
 import { toast } from '../../ui/overlays';
 import { button, note, section, segmented, toggle, type Segmented, type Toggle } from '../../ui/widgets';
@@ -38,7 +38,7 @@ export class BackendPanel implements Panel {
       ready: `GPT-2 small running locally`,
       loading: 'GPT-2 small is loading…',
       error: 'The backend could not load the model',
-      offline: 'Backend not running — recorded examples',
+      offline: ONLINE_DEMO ? 'Online demo — recorded examples' : 'Backend not running — recorded examples',
       checking: 'Looking for the local backend…',
     };
     const copy = (text: string) => () => {
@@ -54,7 +54,14 @@ export class BackendPanel implements Panel {
         ? h('div', { class: 'muted' }, `${formatCount(s.config.parameters)} parameters · ${s.config.layers} layers × ${s.config.heads} heads · d = ${s.config.dModel} · vocabulary ${formatCount(s.config.vocab)} · up to ${s.config.maxTokens} tokens here`)
         : null,
       state === 'error' ? note(s?.error ?? '', 'warning') : null,
-      state === 'offline'
+      state === 'offline' && ONLINE_DEMO
+        ? h(
+            'div',
+            { class: 'muted' },
+            'This online version has no Python backend: the examples below were computed with GPT-2 small in advance. To analyze your own text, run the app on your computer with its GPT-2 backend',
+            LOCAL_SETUP_URL ? [' (', h('a', { href: LOCAL_SETUP_URL, target: '_blank', rel: 'noopener' }, 'how'), ').'] : '.',
+          )
+        : state === 'offline'
         ? h(
             'div',
             { class: 'stack' },
