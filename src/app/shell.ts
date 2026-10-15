@@ -8,13 +8,13 @@ import { h, replaceChildren } from '../ui/dom';
 import { icon } from '../ui/icons';
 import { button } from '../ui/widgets';
 import type { AppState, WorkspaceId } from './state';
-import { WORKSPACES, type WorkspaceSlots } from './workspace';
+import { WORKSPACES, type SplitLimits, type WorkspaceSlots } from './workspace';
 
 export interface Shell {
   slots: WorkspaceSlots;
   /** Container of the WebGL canvas. */
   viewport: HTMLElement;
-  setSplit(fraction: number | null): void;
+  setSplit(fraction: number | null, limits?: SplitLimits): void;
   showFatal(title: string, message: string): void;
 }
 
@@ -24,6 +24,15 @@ export interface ShellHandlers {
   onToggleEffects(): void;
   onSelectWorkspace(id: WorkspaceId): void;
   onOpenLessons(): void;
+}
+
+/** CSS width of the 2D side of a split stage. The minimum never takes more than half the stage. */
+function splitWidth(fraction: number, limits?: SplitLimits): string {
+  const percent = `${(fraction * 100).toFixed(2)}%`;
+  if (!limits) return percent;
+  const min = limits.min === undefined ? '0px' : `min(${limits.min}px, 50%)`;
+  const max = limits.max === undefined ? '100%' : `${limits.max}px`;
+  return `clamp(${min}, ${percent}, ${max})`;
 }
 
 export function buildShell(root: HTMLElement, store: Store<AppState>, handlers: ShellHandlers): Shell {
@@ -119,10 +128,10 @@ export function buildShell(root: HTMLElement, store: Store<AppState>, handlers: 
   return {
     slots: { left, right, bottom, stage: overlay, side },
     viewport,
-    setSplit(fraction) {
+    setSplit(fraction, limits) {
       side.hidden = fraction === null;
       stage.classList.toggle('is-split', fraction !== null);
-      stage.style.setProperty('--split', fraction === null ? '0%' : `${(fraction * 100).toFixed(2)}%`);
+      stage.style.setProperty('--split', fraction === null ? '0%' : splitWidth(fraction, limits));
     },
     showFatal(title, message) {
       replaceChildren(stage, h('div', { class: 'fatal' }, icon('warning', 28), h('h2', null, title), h('p', null, message)));

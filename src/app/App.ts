@@ -72,7 +72,7 @@ export class App {
       viewport,
       camera,
       slots: shell.slots,
-      setSplit: (fraction) => shell.setSplit(fraction),
+      setSplit: (fraction, limits) => shell.setSplit(fraction, limits),
       switchWorkspace: (id) => this.switchTo(id),
     };
     this.applyTheme();

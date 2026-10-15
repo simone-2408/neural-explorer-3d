@@ -40,6 +40,20 @@ interface Run {
 
 const ACTIVATION_CHOICES: ActivationId[] = ['relu', 'leaky_relu', 'tanh', 'sigmoid', 'gelu'];
 
+/**
+ * Width of the 2D side (decision boundaries, curves, table): a share of the
+ * stage, clamped so the side stays readable and the 3D view gets the extra
+ * room on wide stages.
+ */
+const SIDE_SPLIT = 0.38;
+const SIDE_LIMITS = { min: 270, max: 400 };
+/** World units kept above the layer titles for the A/B badge. */
+const TAG_ROOM = 2.4;
+/** World units between the bottom of network A and the tag of network B. */
+const STACK_GAP = 1.6;
+/** Pixels kept free around the networks: the layer titles and tags stick out of the 3D box by about this much. */
+const FRAME_PADDING = 28;
+
 export class CompareWorkspace implements Workspace {
   readonly id = 'training' as const;
   comparison: Comparison = COMPARISONS[0];
@@ -78,7 +92,7 @@ export class CompareWorkspace implements Workspace {
   mount(host: WorkspaceHost): void {
     this.host = host;
     this.bag = new DisposeBag();
-    host.setSplit(0.5);
+    host.setSplit(SIDE_SPLIT, SIDE_LIMITS);
     const view = host.store.state.view;
     this.palette = scenePalette(view.theme, view.weightPalette);
     host.viewport.setBackground(this.palette.background);
@@ -266,24 +280,28 @@ export class CompareWorkspace implements Workspace {
 
   private buildViews(): void {
     const host = this.host!;
-    const options = toViewOptions(host.store.state.view);
+    // Two networks share the view: per-neuron names and values would be too small to read.
+    const options = { ...toViewOptions(host.store.state.view), showFloor: false, showNeuronNames: false, showValues: false };
     for (const run of this.runs) {
-      run.view = new NetworkView({ viewport: host.viewport, model: run.model, palette: this.palette, options: { ...options, showFloor: false } });
+      run.view = new NetworkView({ viewport: host.viewport, model: run.model, palette: this.palette, options, compactLabels: true });
       run.view.build();
       run.boundary = new BoundaryView({ model: run.model, dataset: () => this.dataset, palette: () => this.palette, onProbe: () => undefined });
     }
-    // Side by side along z, with a gap.
+    // A above B, inputs aligned: the layers line up column by column, and in
+    // every preset view except the top one the two networks stay apart on screen.
     const [a, b] = this.runs.map((r) => r.view!.getLayout());
-    const gap = 2.5;
-    const offsetA = -(a.boundsMax[2] + gap / 2);
-    const offsetB = -b.boundsMin[2] + gap / 2;
-    this.runs[0].view!.root.position.z = offsetA;
-    this.runs[1].view!.root.position.z = offsetB;
+    const left = Math.min(a.boundsMin[0], b.boundsMin[0]);
+    this.runs[0].view!.root.position.set(left - a.boundsMin[0], STACK_GAP / 2 - a.boundsMin[1], 0);
+    this.runs[1].view!.root.position.set(left - b.boundsMin[0], -STACK_GAP / 2 - (b.boundsMax[1] + TAG_ROOM), 0);
     for (const run of this.runs) {
-      const tag = h('div', { class: 'compare__tag' }, `Network ${run.label}`);
+      // A letter badge above the title of the input layer (the CSS keeps it clear of the title):
+      // narrow enough never to reach the title of the next layer.
+      const tag = h('div', { class: 'compare__tag-anchor' }, h('span', { class: 'compare__tag' }, run.label));
       run.tag = new CSS2DObject(tag);
+      run.tag.center.set(0.5, 1);
       const layout = run.view!.getLayout();
-      run.tag.position.set(layout.boundsMin[0] - 0.8, layout.labelY, 0);
+      const input = layout.frames[0];
+      run.tag.position.set(input.center[0], layout.labelY, input.center[2] - input.halfWidth);
       run.view!.root.add(run.tag);
     }
   }
@@ -303,12 +321,13 @@ export class CompareWorkspace implements Workspace {
     if (!host) return;
     const boxes = this.runs.map((r) => {
       const l = r.view!.getLayout();
-      const z = r.view!.root.position.z;
-      return { min: [l.boundsMin[0], l.boundsMin[1], l.boundsMin[2] + z], max: [l.boundsMax[0], l.boundsMax[1], l.boundsMax[2] + z] };
+      const o = r.view!.root.position;
+      return { min: [l.boundsMin[0] + o.x, l.boundsMin[1] + o.y, l.boundsMin[2] + o.z], max: [l.boundsMax[0] + o.x, l.boundsMax[1] + TAG_ROOM + o.y, l.boundsMax[2] + o.z] };
     });
     const min: [number, number, number] = [0, 1, 2].map((k) => Math.min(boxes[0].min[k], boxes[1].min[k])) as [number, number, number];
     const max: [number, number, number] = [0, 1, 2].map((k) => Math.max(boxes[0].max[k], boxes[1].max[k])) as [number, number, number];
-    host.camera.setBounds(min, max);
+    // Framed exactly (largest size, centred): the views fill the 3D area even when it is narrow.
+    host.camera.setBounds(min, max, FRAME_PADDING);
     host.camera.reset(animate);
   }
 
@@ -447,7 +466,7 @@ export class CompareWorkspace implements Workspace {
       'div',
       { class: 'inspector-view' },
       header,
-      block(1, 'What you see', paragraph('Left: what each network predicts over the plane (A left, B right). Right: both networks in 3D (A in front, B behind). The curves overlay A (solid) and B (dashed).')),
+      block(1, 'What you see', paragraph('Left: what each network predicts over the plane (A left, B right). Right: both networks in 3D (A on top, B below, inputs aligned). The curves overlay A (solid) and B (dashed).')),
       block(2, 'Question', paragraph(this.comparison.question), paragraph(this.comparison.insight)),
       block(
         3,

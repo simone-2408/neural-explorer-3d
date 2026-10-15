@@ -23,13 +23,22 @@ export interface WorkspaceSlots {
   side: HTMLElement;
 }
 
+/** Bounds in CSS pixels for the width of the 2D side of a split stage. */
+export interface SplitLimits {
+  min?: number;
+  max?: number;
+}
+
 export interface WorkspaceHost {
   store: Store<AppState>;
   viewport: Viewport;
   camera: CameraController;
   slots: WorkspaceSlots;
-  /** Splits the stage: `fraction` of the width goes to `slots.side`, the rest to the 3D view (null = no split). */
-  setSplit(fraction: number | null): void;
+  /**
+   * Splits the stage: `fraction` of the width goes to `slots.side`, the rest to the 3D view (null = no split).
+   * `limits` clamp the side width, so the 3D view keeps the extra room on wide stages.
+   */
+  setSplit(fraction: number | null, limits?: SplitLimits): void;
   /** Switches to another workspace (used by lessons and cross-links); resolves with the mounted workspace. */
   switchWorkspace(id: WorkspaceId): Workspace;
 }

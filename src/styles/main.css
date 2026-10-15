@@ -1054,6 +1054,23 @@ kbd {
   font-weight: 500;
 }
 
+/* crowded layers (NetworkView compactLabels): name only, then the short name */
+
+.layer-label__short,
+.layer-label--name .layer-label__meta,
+.layer-label--short .layer-label__name,
+.layer-label--short .layer-label__meta {
+  display: none;
+}
+
+.layer-label--short .layer-label__short {
+  display: block;
+}
+
+.layer-label--short {
+  padding: 3px 5px;
+}
+
 .neuron-label {
   display: flex;
   flex-direction: column;
@@ -2785,7 +2802,14 @@ kbd {
   font-family: var(--font-mono);
 }
 
+/* anchored on the title of the input layer: the badge sits just above the tallest form of that title */
+.compare__tag-anchor {
+  padding-bottom: 26px;
+  pointer-events: none;
+}
+
 .compare__tag {
+  display: block;
   padding: 3px 8px;
   border-radius: 6px;
   background: var(--accent);

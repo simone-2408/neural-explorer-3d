@@ -45,6 +45,7 @@ import {
 import { computeLayout, type LayerFrame, type LayoutMode, type NetworkLayout, type Vec3 } from '../visualization/layout';
 import type { ScenePalette } from '../visualization/palette';
 import type { NetworkSelection } from '../visualization/selection';
+import { chooseLabelDetail, LABEL_DETAILS, type LabelDetail, type LabelSize } from './labelDetail';
 import { createConnectionMaterial, createNeuronMaterial, REVEAL_ALL } from './materials';
 import { pointSegmentDistance, projectPoints } from './picking';
 import type { Viewport } from './Viewport';
@@ -167,6 +168,12 @@ export class NetworkView {
   private readonly labelGroup = new THREE.Group();
   private layerLabels: CSS2DObject[] = [];
   private neuronLabels: NeuronLabel[] = [];
+  /** Level of detail of the layer titles (see labelDetail.ts); only changes with `compactLabels`. */
+  private labelDetail: LabelDetail = 0;
+  /** Largest layer title at each level of detail, measured once the titles are on the page. */
+  private labelSizes: Record<LabelDetail, LabelSize> | null = null;
+  private labelAnchors = new Float32Array(0);
+  private labelPoints = new Float32Array(0);
 
   private readonly ring: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
   private readonly arrow: THREE.Mesh<THREE.ConeGeometry, THREE.MeshBasicMaterial>;
@@ -175,6 +182,7 @@ export class NetworkView {
   private selection: NetworkSelection | null = null;
   private hover: NetworkSelection | null = null;
   private readonly removeBeforeRender: () => void;
+  private readonly removeAfterRender: () => void;
 
   // Scratch objects (avoid allocations in hot loops).
   private readonly m4 = new THREE.Matrix4();
@@ -195,6 +203,8 @@ export class NetworkView {
     onLayerLabelClick?: (layer: number) => void;
     /** Translation of the whole network (used to show two networks side by side). */
     offset?: Vec3;
+    /** Shorten the layer titles when neighbouring layers are too close on screen to show them in full. */
+    compactLabels?: boolean;
   }) {
     this.viewport = params.viewport;
     this.model = params.model;
@@ -218,6 +228,8 @@ export class NetworkView {
     this.removeBeforeRender = this.viewport.onBeforeRender((camera) => {
       if (this.ring.visible) this.ring.quaternion.copy(camera.quaternion);
     });
+    // After the label pass: the titles are on the page (measurable) and the world matrices are current.
+    this.removeAfterRender = params.compactLabels ? this.viewport.onAfterRender(() => this.updateLabelDetail()) : () => undefined;
     // With the visual effects the atmosphere draws the floor grid.
     this.removeEffectsListener = this.viewport.onEffectsChange((on) => {
       if (this.grid) this.grid.visible = !on;
@@ -623,6 +635,7 @@ export class NetworkView {
     this.viewport.animations.cancelChannel('layout');
     this.viewport.animations.cancelChannel('selection-ring');
     this.removeBeforeRender();
+    this.removeAfterRender();
     this.removeEffectsListener();
     this.disposeMeshes();
     this.clearPlates();
@@ -937,7 +950,11 @@ export class NetworkView {
       meta.className = 'layer-label__meta';
       const sizeText = layer.shape ? `${layer.shape[0]}×${layer.shape[1]}` : `${layer.size}`;
       meta.textContent = layer.role === 'input' ? `${sizeText} inputs` : `${sizeText} · ${ACTIVATIONS[layer.activation].label}`;
-      element.append(name, meta);
+      // Shown instead of the name when the layers are crowded (compactLabels).
+      const short = document.createElement('span');
+      short.className = 'layer-label__short';
+      short.textContent = layer.role === 'input' ? 'In' : layer.role === 'output' ? 'Out' : layer.prefix;
+      element.append(name, short, meta);
       element.addEventListener('pointerdown', (event) => event.stopPropagation());
       element.addEventListener('click', () => this.onLayerLabelClick(l));
       const object = new CSS2DObject(element);
@@ -945,6 +962,10 @@ export class NetworkView {
       this.labelGroup.add(object);
       this.layerLabels.push(object);
     });
+    this.labelDetail = 0;
+    this.labelSizes = null;
+    this.labelAnchors = new Float32Array(this.layerLabels.length * 3);
+    this.labelPoints = new Float32Array(this.layerLabels.length * 3);
 
     if (topology.neuronCount <= MAX_NEURON_LABELS) {
       for (let g = 0; g < topology.neuronCount; g++) {
@@ -969,6 +990,51 @@ export class NetworkView {
   private layerLabelAnchor(layer: number): THREE.Vector3 {
     const frame = this.layout.frames[layer];
     return new THREE.Vector3(frame.center[0], this.layout.labelY, frame.center[2] - frame.halfWidth);
+  }
+
+  /** Picks how much of the layer titles to show from the room between neighbouring layers on screen. */
+  private updateLabelDetail(): void {
+    const labels = this.layerLabels;
+    if (labels.length < 2 || !this.root.visible) return;
+    this.labelSizes ??= this.measureLabels();
+    if (!this.labelSizes) return;
+    labels.forEach((label, l) => {
+      this.labelAnchors[3 * l] = label.position.x;
+      this.labelAnchors[3 * l + 1] = label.position.y;
+      this.labelAnchors[3 * l + 2] = label.position.z;
+    });
+    const { width, height } = this.viewport.size;
+    const m = this.viewport.viewProjection(this.vp).multiply(this.root.matrixWorld).elements;
+    projectPoints(this.labelAnchors, m, width, height, this.labelPoints);
+    const detail = chooseLabelDetail(this.labelPoints, this.labelSizes, this.labelDetail);
+    if (detail === this.labelDetail) return;
+    // The titles are centred on their anchor with a percentage transform: no new frame needed.
+    this.labelDetail = detail;
+    this.setLabelClasses(detail);
+  }
+
+  /** Largest layer title at each level of detail (null while the titles are not laid out on the page). */
+  private measureLabels(): Record<LabelDetail, LabelSize> | null {
+    const elements = this.layerLabels.map((label) => label.element);
+    const sizes = LABEL_DETAILS.map((detail) => {
+      this.setLabelClasses(detail);
+      let width = 0;
+      let height = 0;
+      for (const element of elements) {
+        width = Math.max(width, element.offsetWidth);
+        height = Math.max(height, element.offsetHeight);
+      }
+      return { width, height };
+    });
+    this.setLabelClasses(this.labelDetail);
+    return sizes[0].width > 0 ? { 0: sizes[0], 1: sizes[1], 2: sizes[2] } : null;
+  }
+
+  private setLabelClasses(detail: LabelDetail): void {
+    for (const label of this.layerLabels) {
+      label.element.classList.toggle('layer-label--name', detail === 1);
+      label.element.classList.toggle('layer-label--short', detail === 2);
+    }
   }
 
   private updateNeuronLabels(): void {

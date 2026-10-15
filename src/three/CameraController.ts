@@ -25,9 +25,22 @@ const VIEW_DIRECTIONS: Record<CameraView, Vec3> = {
   front: [-1, 0.16, 0.24],
 };
 
+/** Share of the view kept free around a box framed with a padding (on top of the padding itself). */
+export const FIT_MARGIN = 1.03;
+
+/** Screen axes of a view looking along -`forward`: `right` and `up`. */
+function viewBasis(forward: THREE.Vector3): { right: THREE.Vector3; up: THREE.Vector3 } {
+  const upHint = Math.abs(forward.y) > 0.99 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
+  const right = new THREE.Vector3().crossVectors(upHint, forward).normalize();
+  const up = new THREE.Vector3().crossVectors(forward, right).normalize();
+  return { right, up };
+}
+
 export class CameraController {
   private readonly viewport: Viewport;
   private readonly box = new THREE.Box3(new THREE.Vector3(-5, -5, -5), new THREE.Vector3(5, 5, 5));
+  /** Pixels kept free around the box when it is framed exactly (null = aim at the box centre, see setBounds). */
+  private padding: number | null = null;
   /** Direction of the view currently framing the content; null once the user moves the camera. */
   private fitted: Vec3 | null = null;
 
@@ -40,10 +53,18 @@ export class CameraController {
     });
   }
 
-  /** Bounding box of the content, used by reset and preset views. */
-  setBounds(min: Vec3, max: Vec3): void {
+  /**
+   * Bounding box of the content, used by reset and preset views.
+   *
+   * Without `padding` the views aim at the box centre and keep a share of the
+   * view free: loose framing that leaves room for labels placed outside the box.
+   * With `padding` (CSS pixels per side, for the HTML labels that stick out of
+   * the box) the box is framed exactly: as large as fits, centred on screen.
+   */
+  setBounds(min: Vec3, max: Vec3, padding?: number): void {
     this.box.min.set(min[0], min[1], min[2]);
     this.box.max.set(max[0], max[1], max[2]);
+    this.padding = padding ?? null;
     this.viewport.setContentBounds(this.box.min, this.box.max);
   }
 
@@ -56,9 +77,7 @@ export class CameraController {
     // HTML labels extend beyond the 3D box: keep more room on narrow (portrait) viewports.
     const margin = camera.aspect < 1 ? 1.16 : 1.06;
     const forward = direction.clone().normalize();
-    const upHint = Math.abs(forward.y) > 0.99 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
-    const right = new THREE.Vector3().crossVectors(upHint, forward).normalize();
-    const up = new THREE.Vector3().crossVectors(forward, right).normalize();
+    const { right, up } = viewBasis(forward);
     const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
     const tanH = tanV * camera.aspect;
     const { min, max } = this.box;
@@ -70,6 +89,63 @@ export class CameraController {
       distance = Math.max(distance, z + Math.abs(p.dot(right)) / tanH, z + Math.abs(p.dot(up)) / tanV);
     }
     return distance * margin;
+  }
+
+  /**
+   * Camera placement looking along -`forward` that frames the content box
+   * exactly: the closest position at which all eight corners are inside the
+   * view frustum (less `padding` pixels per side), shifted sideways so that
+   * the *projected* box is centred. With perspective the near side of the box
+   * looks bigger, so aiming at the box centre leaves an empty band on the far side.
+   */
+  private fitBox(forward: THREE.Vector3, padding: number): { position: THREE.Vector3; target: THREE.Vector3 } {
+    const { camera, size } = this.viewport;
+    const { right, up } = viewBasis(forward);
+    const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / FIT_MARGIN;
+    const tanV = tan * Math.max(0.5, 1 - (2 * padding) / size.height);
+    const tanH = tan * camera.aspect * Math.max(0.5, 1 - (2 * padding) / size.width);
+
+    // Corners in the camera basis: x along `right`, y along `up`, z along `forward`.
+    const { min, max } = this.box;
+    const p = new THREE.Vector3();
+    const corners: [number, number, number][] = [];
+    for (let k = 0; k < 8; k++) {
+      p.set(k & 1 ? max.x : min.x, k & 2 ? max.y : min.y, k & 4 ? max.z : min.z);
+      corners.push([p.dot(right), p.dot(up), p.dot(forward)]);
+    }
+    // Closest camera depth for one axis: with the camera centred on that axis, both sides touch the frustum.
+    const closest = (axis: 0 | 1, tan: number) => {
+      let a = -Infinity;
+      let b = -Infinity;
+      for (const c of corners) {
+        a = Math.max(a, c[2] + c[axis] / tan);
+        b = Math.max(b, c[2] - c[axis] / tan);
+      }
+      return (a + b) / 2;
+    };
+    const depth = Math.max(closest(0, tanH), closest(1, tanV));
+    // Sideways offset at that depth that balances the two sides (one shrinks as the other grows).
+    const centre = (axis: 0 | 1) => {
+      let lo = Math.min(...corners.map((c) => c[axis]));
+      let hi = Math.max(...corners.map((c) => c[axis]));
+      for (let i = 0; i < 40; i++) {
+        const mid = (lo + hi) / 2;
+        let above = -Infinity;
+        let below = -Infinity;
+        for (const c of corners) {
+          const z = Math.max(depth - c[2], 1e-6);
+          above = Math.max(above, (c[axis] - mid) / z);
+          below = Math.max(below, (mid - c[axis]) / z);
+        }
+        if (above > below) lo = mid;
+        else hi = mid;
+      }
+      return (lo + hi) / 2;
+    };
+    const position = new THREE.Vector3().addScaledVector(right, centre(0)).addScaledVector(up, centre(1)).addScaledVector(forward, depth);
+    // Orbit around the point of the view axis at the depth of the box centre.
+    const target = position.clone().addScaledVector(forward, this.box.getCenter(p).dot(forward) - depth);
+    return { position, target };
   }
 
   /** Camera distance at which a sphere of `radius` fills the view. */
@@ -91,9 +167,13 @@ export class CameraController {
   /** Frames the content box, looking at it from `direction` (from the target towards the camera). */
   fitDirection(direction: Vec3, animate = true): void {
     const dir = new THREE.Vector3(...direction).normalize();
-    const center = this.box.getCenter(new THREE.Vector3());
-    const position = center.clone().addScaledVector(dir, this.fitBoxDistance(dir, center));
-    this.flyTo(position, center, animate);
+    if (this.padding === null) {
+      const center = this.box.getCenter(new THREE.Vector3());
+      this.flyTo(center.clone().addScaledVector(dir, this.fitBoxDistance(dir, center)), center, animate);
+    } else {
+      const { position, target } = this.fitBox(dir, this.padding);
+      this.flyTo(position, target, animate);
+    }
     this.fitted = direction;
   }
 
