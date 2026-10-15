@@ -25,6 +25,22 @@ export class BottomBar implements Panel {
 
   constructor(ctx: NetworkContext, viewport: Viewport) {
     this.ctx = ctx;
+    // Only drawn with the visual effects on (dark theme, motion allowed).
+    const sparks = h(
+      'span',
+      { class: 'legend__item', title: 'Visual effects: light moving along each connection, as bright as its contribution w·a to the next neuron (colour = sign of w·a)' },
+      svg(
+        'svg',
+        { class: 'legend__glyph legend__spark', viewBox: '0 0 28 10', width: 28, height: 10, 'aria-hidden': 'true' },
+        svg('line', { x1: 2, x2: 26, y1: 5, y2: 5, 'stroke-width': 1.4, 'stroke-linecap': 'round' }),
+        svg('circle', { cx: 18, cy: 5, r: 2.6 }),
+      ),
+      'moving light = w·a',
+    );
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const showSparks = (view: { effects: boolean; theme: string }) => (sparks.hidden = !(view.effects && view.theme === 'dark' && !reducedMotion));
+    showSparks(ctx.store.state.view);
+    this.bag.add(ctx.store.watch((s) => s.view, showSparks));
     const legend = h(
       'div',
       { class: 'legend', 'aria-label': 'Legend' },
@@ -37,6 +53,7 @@ export class BottomBar implements Panel {
         'thickness = |w|',
       ),
       h('span', { class: 'legend__item', title: 'Neuron colour/size: |activation|' }, h('span', { class: 'legend__dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')), 'brightness = |a|'),
+      sparks,
     );
     this.el = h('div', { class: 'bottombar__content' }, this.strip, legend, h('div', { class: 'stats-wrap' }, this.stats, this.perf));
 

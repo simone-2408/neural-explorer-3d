@@ -44,6 +44,7 @@ export class CameraController {
   setBounds(min: Vec3, max: Vec3): void {
     this.box.min.set(min[0], min[1], min[2]);
     this.box.max.set(max[0], max[1], max[2]);
+    this.viewport.setContentBounds(this.box.min, this.box.max);
   }
 
   /**

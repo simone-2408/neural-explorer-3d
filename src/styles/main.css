@@ -1183,6 +1183,15 @@ kbd {
   fill: var(--text-muted);
 }
 
+.legend__spark line {
+  opacity: 0.45;
+}
+
+.legend__spark circle {
+  fill: #fff4e6;
+  filter: drop-shadow(0 0 2px var(--pos)) drop-shadow(0 0 4px var(--pos));
+}
+
 .legend__dots {
   display: inline-flex;
   align-items: center;

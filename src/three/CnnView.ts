@@ -23,6 +23,7 @@ import { formatProbability, formatSigned } from '../utils/format';
 import type { Vec3 } from '../visualization/layout';
 import type { ScenePalette } from '../visualization/palette';
 import type { Viewport } from './Viewport';
+import { withGlow } from './fx';
 
 export type CnnStageKind = 'input' | 'conv' | 'pool' | 'output';
 
@@ -93,7 +94,7 @@ export class CnnView {
   private classNames: string[] = [];
   private cells: THREE.InstancedMesh | null = null;
   private pick: THREE.InstancedMesh | null = null;
-  private readonly cellMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  private readonly cellMaterial = withGlow(new THREE.MeshLambertMaterial({ color: 0xffffff }), 1.3, 0.4);
   private readonly pickMaterial = new THREE.MeshBasicMaterial({ visible: false });
   private readonly lines: THREE.LineSegments;
   private readonly frames: THREE.LineSegments;

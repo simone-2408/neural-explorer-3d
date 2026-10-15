@@ -23,6 +23,7 @@ import type { ExperimentResult } from '../experiments/types';
 import type { Vec3 } from '../visualization/layout';
 import type { ScenePalette } from '../visualization/palette';
 import type { Viewport } from './Viewport';
+import { withGlow } from './fx';
 
 export type ExperimentPick =
   | { kind: 'head'; layer: number; head: number }
@@ -90,7 +91,7 @@ export class ExperimentView {
   private result: ExperimentResult | null = null;
 
   private readonly tileMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false });
-  private readonly barMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  private readonly barMaterial = withGlow(new THREE.MeshLambertMaterial({ color: 0xffffff }), 1.3, 0.4);
   private readonly pickMaterial = new THREE.MeshBasicMaterial({ visible: false });
   private readonly frameMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
   private readonly bandMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
@@ -289,6 +290,8 @@ export class ExperimentView {
       tiles.setColorAt(k, c);
       const v = this.barTo[k];
       c.copy(!this.signed ? neutral : v >= 0 ? pos : neg);
+      // Saturation grows with |value| (as the length does), so only large effects glow.
+      c.lerp(base, 0.5 * (1 - Math.min(1, Math.abs(v))));
       if (d?.value === null || d?.value === undefined) c.lerp(base, 0.8);
       if (hovered) c.lerp(white, 0.25);
       bars.setColorAt(k, c);

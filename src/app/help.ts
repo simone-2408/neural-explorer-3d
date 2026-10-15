@@ -101,6 +101,7 @@ const TABS: { id: WorkspaceId; label: string; shortcuts: Shortcut[] }[] = [
 
 const GLOBAL: Shortcut[] = [
   [['T'], 'Light / dark theme'],
+  [['M'], 'Visual effects on / off (glow, depth, ambient motion)'],
   [['[', ']'], 'Hide / show the side panels'],
   [['?'], 'This help'],
 ];

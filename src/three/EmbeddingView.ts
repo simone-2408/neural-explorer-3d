@@ -14,6 +14,7 @@ import type { Vec3 } from '../visualization/layout';
 import type { ScenePalette } from '../visualization/palette';
 import { projectPoints } from './picking';
 import type { Viewport } from './Viewport';
+import { withGlow } from './fx';
 
 export type EmbeddingPick = { kind: 'word'; id: number } | { kind: 'point'; position: number };
 
@@ -42,7 +43,7 @@ export class EmbeddingView {
   private stage = 0;
   private mesh: THREE.InstancedMesh | null = null;
   private readonly sphere = new THREE.SphereGeometry(0.13, 18, 12);
-  private readonly material = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  private readonly material = withGlow(new THREE.MeshLambertMaterial({ color: 0xffffff }), 0.55, 0.5);
   private trails: THREE.LineSegments | null = null;
   private readonly trailMaterial = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.45 });
   private readonly axes = new THREE.Group();

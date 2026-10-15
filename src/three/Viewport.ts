@@ -5,17 +5,31 @@
  *
  * Rendering is *on demand*: a frame is drawn only when something changed
  * (camera movement, an animation, `requestRender()`), so an idle app costs
- * almost nothing on laptops and older GPUs.
+ * almost nothing on laptops and older GPUs. With the visual effects on (the
+ * Atmosphere: glow, backdrop, dust), the ambient motion adds frames at 30 fps
+ * unless the user prefers reduced motion; without effects nothing changes.
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { AnimationController } from '../animation/AnimationController';
+import { Atmosphere, type AtmosphereColors } from './Atmosphere';
+import { FX } from './fx';
 
 export interface RenderStats {
   calls: number;
   triangles: number;
 }
+
+export interface ViewportOptions {
+  /** Visual-effects layer (main viewport only). */
+  atmosphere?: boolean;
+}
+
+/** Interval between frames of the ambient motion, in seconds. */
+const AMBIENT_FRAME = 1 / 30;
+/** Resolution cap of the post-processed image (the HTML labels stay sharp regardless). */
+const EFFECTS_PIXEL_RATIO = 1.5;
 
 export class Viewport {
   readonly container: HTMLElement;
@@ -31,17 +45,25 @@ export class Viewport {
   private dirty = true;
   private rafId = 0;
   private lastTime = 0;
+  private readonly atmosphere: Atmosphere | null = null;
+  private effects = false;
+  private colors: AtmosphereColors | null = null;
+  private background = new THREE.Color('#0b0f15');
+  private ambientElapsed = 0;
+  private readonly effectsListeners = new Set<(on: boolean) => void>();
   private readonly beforeRender = new Set<(camera: THREE.PerspectiveCamera) => void>();
   private readonly afterRender = new Set<() => void>();
   private readonly resizeListeners = new Set<() => void>();
   private readonly resizeObserver: ResizeObserver;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, options: ViewportOptions = {}) {
     this.container = container;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.domElement.classList.add('viewport-canvas');
+    // Counted per frame (all passes), not per render call.
+    this.renderer.info.autoReset = false;
     container.appendChild(this.renderer.domElement);
 
     this.labelRenderer = new CSS2DRenderer();
@@ -50,6 +72,12 @@ export class Viewport {
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.05, 2000);
     this.camera.position.set(-6, 5, 12);
+
+    if (options.atmosphere) {
+      this.atmosphere = new Atmosphere(this.renderer, this.scene, this.camera);
+      this.atmosphere.group.visible = false;
+      this.scene.add(this.atmosphere.group);
+    }
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
@@ -94,7 +122,42 @@ export class Viewport {
   }
 
   setBackground(color: string): void {
-    this.scene.background = new THREE.Color(color);
+    this.background.set(color);
+    this.applyBackground();
+  }
+
+  /** Whether the visual effects are drawn (they need the atmosphere layer). */
+  get effectsActive(): boolean {
+    return this.effects;
+  }
+
+  /** Turns the visual effects on or off and gives them the theme's colours. */
+  setEffects(on: boolean, colors: AtmosphereColors): void {
+    const atmosphere = this.atmosphere;
+    const active = on && atmosphere !== null;
+    this.colors = colors;
+    atmosphere?.setColors(colors);
+    const changed = active !== this.effects;
+    this.effects = active;
+    const dark = colors.theme === 'dark';
+    FX.uGlow.value = active && dark ? 1 : 0;
+    FX.uMotion.value = active && dark && !this.animations.reducedMotion ? 1 : 0;
+    this.renderer.toneMapping = active ? THREE.NeutralToneMapping : THREE.NoToneMapping;
+    if (atmosphere) atmosphere.group.visible = active;
+    this.applyBackground();
+    this.resizeRenderTargets();
+    if (changed) for (const fn of this.effectsListeners) fn(active);
+  }
+
+  onEffectsChange(fn: (on: boolean) => void): () => void {
+    this.effectsListeners.add(fn);
+    return () => this.effectsListeners.delete(fn);
+  }
+
+  /** Bounding box of the content: places the floor and the dust of the atmosphere. */
+  setContentBounds(min: THREE.Vector3, max: THREE.Vector3): void {
+    this.atmosphere?.setBounds(min, max);
+    this.resizeRenderTargets();
     this.requestRender();
   }
 
@@ -115,6 +178,7 @@ export class Viewport {
     this.resizeObserver.disconnect();
     this.animations.cancelAll();
     this.controls.dispose();
+    this.atmosphere?.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
     this.labelRenderer.domElement.remove();
@@ -130,8 +194,24 @@ export class Viewport {
     this.labelRenderer.setSize(width, height);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
+    this.resizeRenderTargets();
     this.requestRender();
     for (const fn of this.resizeListeners) fn();
+  }
+
+  private get effectsPixelRatio(): number {
+    return Math.min(window.devicePixelRatio, EFFECTS_PIXEL_RATIO);
+  }
+
+  private resizeRenderTargets(): void {
+    if (this.effects) this.atmosphere?.setSize(this.size.width, this.size.height, this.effectsPixelRatio);
+  }
+
+  private applyBackground(): void {
+    // With effects the backdrop of the atmosphere replaces the flat background.
+    this.scene.background = this.effects ? null : this.background;
+    if (this.effects && this.colors && this.atmosphere) this.atmosphere.setColors({ ...this.colors, background: '#' + this.background.getHexString() });
+    this.requestRender();
   }
 
   private readonly loop = (time: number): void => {
@@ -142,11 +222,19 @@ export class Viewport {
     let needsRender = this.dirty;
     if (this.animations.update(dt)) needsRender = true;
     if (this.controls.update(dt)) needsRender = true;
+    if (this.effects && FX.uMotion.value > 0) {
+      FX.uTime.value += dt;
+      this.ambientElapsed += dt;
+      if (this.ambientElapsed >= AMBIENT_FRAME) needsRender = true;
+    }
     if (!needsRender) return;
 
     this.dirty = false;
+    this.ambientElapsed = 0;
     for (const fn of this.beforeRender) fn(this.camera);
-    this.renderer.render(this.scene, this.camera);
+    this.renderer.info.reset();
+    if (this.effects && this.atmosphere) this.atmosphere.render(this.camera, this.effectsPixelRatio);
+    else this.renderer.render(this.scene, this.camera);
     this.stats.calls = this.renderer.info.render.calls;
     this.stats.triangles = this.renderer.info.render.triangles;
     this.labelRenderer.render(this.scene, this.camera);

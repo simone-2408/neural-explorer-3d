@@ -22,6 +22,7 @@ import type { Vec3 } from '../visualization/layout';
 import type { ScenePalette } from '../visualization/palette';
 import { ArcMesh, type ArcInstance } from './ArcMesh';
 import type { Viewport } from './Viewport';
+import { withGlow } from './fx';
 
 export type RnnWeights = 'ih' | 'hh' | 'out';
 
@@ -69,7 +70,7 @@ export class RnnView {
   private gates: THREE.InstancedMesh | null = null;
   private gradBars: THREE.InstancedMesh | null = null;
   private pickBoxes: THREE.InstancedMesh | null = null;
-  private readonly material = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  private readonly material = withGlow(new THREE.MeshLambertMaterial({ color: 0xffffff }), 0.95, 0.45);
   private readonly pickMaterial = new THREE.MeshBasicMaterial({ visible: false });
   private readonly arcs = new ArcMesh();
   private arcKinds: RnnWeights[] = [];

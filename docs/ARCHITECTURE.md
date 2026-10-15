@@ -163,6 +163,14 @@ slider ─► model.setWeight() ─► forward recomputed ─► "params" + "act
 - **Camera** — preset views framed on the real bounding box projected in the frustum; animated flights in
   spherical coordinates; the framing follows panel and window resizes until the user moves the camera; the
   camera position is remembered per tab.
+- **Visual effects** (`Atmosphere`, `fx.ts`; on by default, ✨ button or **M**) — HDR rendering into a
+  half-float target with 4× MSAA, bloom, a light vignette and colour fringe, Khronos PBR Neutral tone
+  mapping (colours below the highlights are left as they are); a backdrop with faint nebulae, drifting dust
+  and a floor grid fading into the distance, placed from the bounds the camera frames. Glow encodes values:
+  materials share the `FX` uniforms and emit light in proportion to the value an element shows (activation,
+  residual value, attention weight, probability, effect size), and in the Neural Network tab light flows
+  along each connection as bright as its contribution w·a. The backdrop, dust and floor use neutral colours
+  and carry no values. Light theme: gradient and floor only.
 
 ---
 
@@ -310,6 +318,13 @@ gradients).
 **ADR-020 · Hand-written backward passes, verified twice.** The CNN and RNN gradients are written out
 (no autodiff library), so the inspectors can show every intermediate value; finite differences and
 PyTorch's autograd check them.
+
+**ADR-021 · Visual effects that encode values, and can be switched off.** Glow and moving light make the
+scenes easier to read at a glance (where the large values are, where the signal goes), so they are tied to
+the same values as the colours, never decorative; the decorative parts (backdrop, dust, floor) stay
+neutral. The ambient motion breaks render-on-demand (frames at 30 fps), so it stops with
+`prefers-reduced-motion`, the post-processed image is capped at a pixel ratio of 1.5, and switching the
+effects off restores the original renderer exactly (direct rendering, no tone mapping, no idle frames).
 
 ---
 

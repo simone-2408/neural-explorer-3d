@@ -11,6 +11,7 @@
  * at the end (`colorspace_fragment`), like three.js built-in materials.
  */
 import * as THREE from 'three';
+import { FX, FX_CHROMA } from './fx';
 
 const NEURON_VERTEX = /* glsl */ `
   attribute vec3 aColor;
@@ -44,6 +45,7 @@ const NEURON_VERTEX = /* glsl */ `
 `;
 
 const NEURON_FRAGMENT = /* glsl */ `
+  uniform float uGlow;
   uniform vec3 uBackground;
   uniform vec3 uHighlight;
   uniform vec3 uEmpty;
@@ -58,6 +60,7 @@ const NEURON_FRAGMENT = /* glsl */ `
   varying float vReveal;
   varying float vCurrent;
   varying float vFlow;
+  ${FX_CHROMA}
 
   void main() {
     vec3 n = normalize(vNormal);
@@ -67,9 +70,12 @@ const NEURON_FRAGMENT = /* glsl */ `
     float fresnel = pow(1.0 - max(dot(n, v), 0.0), 3.0);
     float specular = pow(max(dot(n, normalize(l + v)), 0.0), 48.0);
     vec3 base = mix(uEmpty, vColor, vReveal); // value not computed yet → empty neuron
-    vec3 color = base * (0.36 + 0.74 * diffuse) + vec3(specular * 0.3) + base * fresnel * 0.4;
+    vec3 color = base * (0.36 + 0.74 * diffuse) + vec3(specular * 0.3) + base * fresnel * (0.4 + 0.5 * uGlow);
+    // Effects: the more active the neuron (the more saturated its colour), the more light it emits.
+    color += base * uGlow * 1.15 * smoothstep(0.32, 0.92, fxChroma(base)) * vReveal;
     // flash while the layer is being computed
-    color += vCurrent * sin(uReveal.y * 3.14159) * 0.22 * uHighlight;
+    // (with effects the neuron lights up in its own colour)
+    color += vCurrent * sin(uReveal.y * 3.14159) * (0.22 * uHighlight + uGlow * 0.8 * base);
     if (uFlowMode > 0.5) color = mix(color, uBackground, (1.0 - vFlow) * 0.82);
     else if (vEmphasis < 0.5) color = mix(color, uBackground, uDim);
     if (vHover > 0.5) color = mix(color, uHighlight, 0.3);
@@ -99,9 +105,11 @@ const CONNECTION_VERTEX = /* glsl */ `
   varying float vSignal;
   varying float vFlow;
   varying float vPending;
+  varying float vPhase;
 
   void main() {
     vColor = aColor;
+    vPhase = fract(float(gl_InstanceID) * 0.6180339887);
     vEmphasis = aStyle.x;
     vLength = aStyle.y;
     vDashed = aStyle.z;
@@ -134,6 +142,11 @@ const CONNECTION_FRAGMENT = /* glsl */ `
   uniform vec4 uPulse;
   uniform float uFlowMode;
   uniform float uTime;
+  uniform float uGlow;
+  uniform float uMotion;
+  uniform float uClock;
+  // 1: particles show the forward contributions w·a (no custom pulse values, no animation in progress)
+  uniform float uAmbient;
   varying vec3 vColor;
   varying float vEmphasis;
   varying float vAlong;
@@ -145,6 +158,7 @@ const CONNECTION_FRAGMENT = /* glsl */ `
   varying float vSignal;
   varying float vFlow;
   varying float vPending;
+  varying float vPhase;
 
   void main() {
     // Negative values are dashed: the sign is never encoded by colour alone.
@@ -163,14 +177,27 @@ const CONNECTION_FRAGMENT = /* glsl */ `
     // Connections the signal has not reached yet are faded.
     alpha *= mix(1.0, 0.16, vPending);
 
-    // A pulse travelling along the connections of one layer.
+    // A pulse travelling along the connections of one layer (with effects: a comet with a tail).
     if (uPulse.w > 0.0 && abs(vLayer - uPulse.x) < 0.5) {
       float center = uPulse.z > 0.0 ? uPulse.y : 1.0 - uPulse.y;
-      float glow = exp(-pow((u - center) / 0.09, 2.0)) * uPulse.w;
+      float behind = uPulse.z > 0.0 ? center - u : u - center;
+      float tail = behind > 0.0 ? exp(-behind / 0.22) * 0.6 * uGlow : 0.0;
+      float glow = max(exp(-pow((u - center) / 0.09, 2.0)), tail) * uPulse.w;
       float strength = abs(vSignal);
-      vec3 pulseColor = mix(vSignal >= 0.0 ? uPositive : uNegative, vec3(1.0), 0.45);
+      vec3 pulseColor = mix(vSignal >= 0.0 ? uPositive : uNegative, vec3(1.0), 0.45) * (1.0 + 2.6 * uGlow * strength);
       color = mix(color, pulseColor, glow * (0.45 + 0.55 * strength));
       alpha = max(alpha, glow * (0.35 + 0.65 * strength));
+    }
+
+    // Effects: particles flowing from source to target, as bright and dense as the contribution |w·a|
+    // (normalized per layer), coloured by its sign.
+    if (uAmbient > 0.5 && uMotion > 0.5 && uFlowMode < 0.5 && uPulse.w <= 0.0 && vPending < 0.5 && vEmphasis > 0.5) {
+      float strength = abs(vSignal);
+      float k = fract(vAlong / 0.9 - uClock * 0.55 + vPhase);
+      float spark = smoothstep(0.0, 0.05, k) * (1.0 - smoothstep(0.05, 0.22, k)) * smoothstep(0.06, 0.5, strength);
+      vec3 sparkColor = (vSignal >= 0.0 ? uPositive : uNegative) * (1.2 + 2.4 * strength);
+      color = mix(color, sparkColor, spark);
+      alpha = max(alpha, spark * (0.4 + 0.6 * strength));
     }
 
     // Follow the signal: opacity from the flow score, plus pulses that run along the path.
@@ -178,7 +205,7 @@ const CONNECTION_FRAGMENT = /* glsl */ `
       alpha = mix(0.03, 1.0, pow(vFlow, 0.6));
       float center = fract(uTime * 0.45 - vLayer * 0.3);
       float glow = exp(-pow((u - center) / 0.06, 2.0)) * vFlow;
-      color = mix(color, mix(color, vec3(1.0), 0.65), glow);
+      color = mix(color, mix(color, vec3(1.0), 0.65) * (1.0 + 1.8 * uGlow), glow);
     }
 
     if (vHover > 0.5) {
@@ -206,6 +233,7 @@ export function createNeuronMaterial(): THREE.ShaderMaterial {
       uEmpty: { value: new THREE.Color() },
       uDim: { value: 0.72 },
       uFlowMode: { value: 0 },
+      uGlow: FX.uGlow,
     },
   });
 }
@@ -229,6 +257,10 @@ export function createConnectionMaterial(): THREE.ShaderMaterial {
       uPulse: { value: new THREE.Vector4(-1, 0, 1, 0) },
       uFlowMode: { value: 0 },
       uTime: { value: 0 },
+      uGlow: FX.uGlow,
+      uMotion: FX.uMotion,
+      uClock: FX.uTime,
+      uAmbient: { value: 1 },
     },
   });
 }

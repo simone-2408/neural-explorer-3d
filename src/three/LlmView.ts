@@ -21,6 +21,7 @@ import type { Vec3 } from '../visualization/layout';
 import type { ScenePalette } from '../visualization/palette';
 import { ArcMesh, arcStyle } from './ArcMesh';
 import type { Viewport } from './Viewport';
+import { withGlow } from './fx';
 
 export type LlmPick =
   | { kind: 'cell'; layer: number; position: number }
@@ -58,7 +59,7 @@ export class LlmView {
   private S = 0;
   private boxes: THREE.InstancedMesh | null = null;
   private pickBoxes: THREE.InstancedMesh | null = null;
-  private readonly boxMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  private readonly boxMaterial = withGlow(new THREE.MeshLambertMaterial({ color: 0xffffff }), 1.1, 0.45);
   private readonly pickMaterial = new THREE.MeshBasicMaterial({ visible: false });
   private readonly arcs = new ArcMesh();
   private arcSpecs: { layer: number; head: number; query: number; key: number; weight: number }[] = [];

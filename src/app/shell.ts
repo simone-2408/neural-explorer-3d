@@ -21,6 +21,7 @@ export interface Shell {
 export interface ShellHandlers {
   onHelp(): void;
   onToggleTheme(): void;
+  onToggleEffects(): void;
   onSelectWorkspace(id: WorkspaceId): void;
   onOpenLessons(): void;
 }
@@ -57,6 +58,13 @@ export function buildShell(root: HTMLElement, store: Store<AppState>, handlers: 
   };
 
   const themeButton = button({ icon: store.state.view.theme === 'dark' ? 'sun' : 'moon', title: 'Toggle light / dark theme (T)', variant: 'ghost', onClick: handlers.onToggleTheme });
+  const effectsButton = button({
+    icon: 'sparkles',
+    title: 'Visual effects: glow of large values, depth and ambient motion (M)',
+    variant: 'ghost',
+    pressed: store.state.view.effects,
+    onClick: handlers.onToggleEffects,
+  });
   const leftToggle = button({
     icon: 'panelLeft',
     title: 'Show / hide the controls panel ([)',
@@ -81,7 +89,7 @@ export function buildShell(root: HTMLElement, store: Store<AppState>, handlers: 
       h('span', { class: 'brand__name' }, 'Neural Explorer ', h('strong', null, '3D')),
     ),
     h('nav', { class: 'tabs', role: 'tablist', 'aria-label': 'Workspaces' }, tabs),
-    h('div', { class: 'topbar__actions' }, leftToggle, rightToggle, themeButton, helpButton),
+    h('div', { class: 'topbar__actions' }, leftToggle, rightToggle, effectsButton, themeButton, helpButton),
   );
 
   const app = h('div', { class: 'app' }, topbar, left, stage, right, bottom);
@@ -102,6 +110,10 @@ export function buildShell(root: HTMLElement, store: Store<AppState>, handlers: 
   store.watch(
     (s) => s.view.theme,
     (theme) => replaceChildren(themeButton, icon(theme === 'dark' ? 'sun' : 'moon')),
+  );
+  store.watch(
+    (s) => s.view.effects,
+    (on) => effectsButton.setAttribute('aria-pressed', String(on)),
   );
 
   return {

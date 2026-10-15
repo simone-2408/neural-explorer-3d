@@ -26,6 +26,8 @@ export interface ViewOptions {
   autoRotate: boolean;
   weightPalette: WeightPaletteId;
   theme: ThemeId;
+  /** Visual effects: glow of large values, backdrop, dust, ambient motion. */
+  effects: boolean;
 }
 
 export interface AppState {
@@ -54,6 +56,7 @@ export const DEFAULT_VIEW: ViewOptions = {
   autoRotate: false,
   weightPalette: 'blue-orange',
   theme: 'dark',
+  effects: true,
 };
 
 const VIEW_KEY = 'ne3d.view';

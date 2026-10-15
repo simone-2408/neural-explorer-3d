@@ -70,8 +70,8 @@ Open **http://localhost:5173**. Every tab works right away; the LLM and Experime
 results until you start the [optional backend](#optional-run-gpt-2-locally).
 
 Drag to rotate, right-drag to pan, scroll to zoom, click to inspect. Press **?** for the controls and
-shortcuts of the current tab, **T** to switch between the dark and the light theme, **[** and **]** to hide
-or show the side panels.
+shortcuts of the current tab, **T** to switch between the dark and the light theme, **M** (or ✨) to turn
+the visual effects on or off, **[** and **]** to hide or show the side panels.
 
 ### Optional: run GPT-2 locally
 
@@ -241,6 +241,9 @@ Everything on screen is computed by the models, so the models have to be right:
 - Sizes, colours and positions are chosen for readability; the inspector always shows the exact values and
   the formula that produced them. Sign is never encoded by colour alone (dashes, up / down, in front of /
   behind a wall).
+- With the visual effects on, light encodes values too: the larger the value an element shows, the more it
+  glows, and in the Neural Network tab light flows along each connection as bright as its contribution w·a.
+  The backdrop, the dust and the floor carry no information. **M** turns the effects off.
 - The Neural Network tab starts with random weights: its outputs are computed exactly but mean nothing until
   the network is trained.
 - PCA projections (embedding space, token journey, loss landscape) keep only part of the variance, which is

@@ -45,6 +45,7 @@ export class App {
     const shell = buildShell(root, this.store, {
       onHelp: () => openHelp(this.store.state.workspace),
       onToggleTheme: () => this.toggleTheme(),
+      onToggleEffects: () => this.toggleEffects(),
       onSelectWorkspace: (id) => this.switchTo(id),
       onOpenLessons: () => this.openLessons(),
     });
@@ -52,14 +53,14 @@ export class App {
     this.store.watch(
       (s) => s.view,
       (view, previous) => {
-        if (view.theme !== previous.theme || view.weightPalette !== previous.weightPalette) this.applyTheme();
+        if (view.theme !== previous.theme || view.weightPalette !== previous.weightPalette || view.effects !== previous.effects) this.applyTheme();
         saveViewPreferences(view);
       },
     );
 
     let viewport: Viewport;
     try {
-      viewport = new Viewport(shell.viewport);
+      viewport = new Viewport(shell.viewport, { atmosphere: true });
     } catch (error) {
       console.error(error);
       shell.showFatal('WebGL is not available', 'Neural Explorer 3D needs WebGL 2. Try a recent version of Chrome, Edge, Firefox or Safari, and check that hardware acceleration is enabled.');
@@ -74,12 +75,14 @@ export class App {
       setSplit: (fraction) => shell.setSplit(fraction),
       switchWorkspace: (id) => this.switchTo(id),
     };
+    this.applyTheme();
     this.mountWorkspace(initial);
 
     window.addEventListener('keydown', (event) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || isModalOpen() || isTypingTarget(event.target)) return;
       if (event.key === '?') openHelp(this.store.state.workspace);
       else if (event.key === 't' || event.key === 'T') this.toggleTheme();
+      else if (event.key === 'm' || event.key === 'M') this.toggleEffects();
       else if (event.key === '[') this.store.set((s) => ({ leftPanelOpen: !s.leftPanelOpen }));
       else if (event.key === ']') this.store.set((s) => ({ rightPanelOpen: !s.rightPanelOpen }));
       else return;
@@ -181,6 +184,10 @@ export class App {
     void import('../lessons/LessonCatalog').then(({ openLessonCatalog }) => openLessonCatalog(this));
   }
 
+  private toggleEffects(): void {
+    this.store.set((s) => ({ view: { ...s.view, effects: !s.view.effects } }));
+  }
+
   private toggleTheme(): void {
     this.store.set((s) => ({ view: { ...s.view, theme: s.view.theme === 'dark' ? 'light' : 'dark' } }));
   }
@@ -195,5 +202,10 @@ export class App {
     root.style.setProperty('--neg', palette.negative);
     root.style.colorScheme = theme;
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0b0f15' : '#f3f5f8');
+    this.host?.viewport.setEffects(this.store.state.view.effects, {
+      theme,
+      background: palette.background,
+      grid: palette.floorGrid,
+    });
   }
 }

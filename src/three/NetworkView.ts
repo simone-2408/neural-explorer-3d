@@ -155,6 +155,8 @@ export class NetworkView {
   private connectionValues: ConnectionValues | null = null;
   private neuronValues: readonly ArrayLike<number>[] | null = null;
   private pulseValues: readonly ArrayLike<number>[] | null = null;
+  private grid: THREE.GridHelper | null = null;
+  private readonly removeEffectsListener: () => void;
   private flow: FlowScores | null = null;
   private reveal: RevealState | null = null;
 
@@ -215,6 +217,10 @@ export class NetworkView {
     this.viewport.scene.add(this.root);
     this.removeBeforeRender = this.viewport.onBeforeRender((camera) => {
       if (this.ring.visible) this.ring.quaternion.copy(camera.quaternion);
+    });
+    // With the visual effects the atmosphere draws the floor grid.
+    this.removeEffectsListener = this.viewport.onEffectsChange((on) => {
+      if (this.grid) this.grid.visible = !on;
     });
     this.applyPaletteUniforms();
   }
@@ -435,6 +441,8 @@ export class NetworkView {
   /** Signed per-connection strengths shown by travelling pulses; null = forward contributions w·a. */
   setPulseValues(values: readonly ArrayLike<number>[] | null): void {
     this.pulseValues = values;
+    // The flowing particles of the effects show forward contributions only.
+    this.connectionMaterial.uniforms.uAmbient.value = values ? 0 : 1;
     this.updatePulseStrengths();
   }
 
@@ -615,6 +623,7 @@ export class NetworkView {
     this.viewport.animations.cancelChannel('layout');
     this.viewport.animations.cancelChannel('selection-ring');
     this.removeBeforeRender();
+    this.removeEffectsListener();
     this.disposeMeshes();
     this.clearPlates();
     this.clearFloor();
@@ -876,6 +885,8 @@ export class NetworkView {
     gridMaterial.depthWrite = false;
     grid.position.set(center[0], y, center[2]);
     grid.renderOrder = -1;
+    grid.visible = !this.viewport.effectsActive;
+    this.grid = grid;
 
     const length = Math.max(max[0] - min[0], 1);
     const arrow = new THREE.ArrowHelper(

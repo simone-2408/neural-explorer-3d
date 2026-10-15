@@ -27,6 +27,7 @@ import type { ScenePalette } from '../visualization/palette';
 import { ArcMesh, arcStyle } from './ArcMesh';
 import { createCellMaterial } from './transformerMaterials';
 import type { Viewport } from './Viewport';
+import { withGlow } from './fx';
 
 export const TRANSFORMER_LAYOUT = {
   tokenSpacing: 2,
@@ -99,7 +100,7 @@ export class TransformerView {
   private pickBoxes: THREE.InstancedMesh | null = null;
   private readonly pickMaterial = new THREE.MeshBasicMaterial({ visible: false });
   private mlpBlocks: THREE.InstancedMesh | null = null;
-  private readonly mlpMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  private readonly mlpMaterial = withGlow(new THREE.MeshLambertMaterial({ color: 0xffffff }), 1.0, 0.5);
   private mlpNorms: number[][] = [];
   private highways: THREE.InstancedMesh | null = null;
   private readonly highwayMaterial = new THREE.MeshBasicMaterial({ color: 0x808080, transparent: true, opacity: 0.7 });

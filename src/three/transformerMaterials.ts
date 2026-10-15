@@ -14,6 +14,7 @@
  * layer ℓ grow while row 2ℓ+1 is being computed.
  */
 import * as THREE from 'three';
+import { FX } from './fx';
 
 const CELL_VERTEX = /* glsl */ `
   attribute float aValue;
@@ -65,6 +66,7 @@ const CELL_FRAGMENT = /* glsl */ `
   uniform vec3 uBackground;
   uniform vec3 uHighlight;
   uniform float uDim;
+  uniform float uGlow;
   varying vec3 vNormal;
   varying vec3 vViewPosition;
   varying float vValue;
@@ -82,6 +84,8 @@ const CELL_FRAGMENT = /* glsl */ `
     vec3 signColor = vValue < 0.0 ? uNegative : uPositive;
     vec3 base = vComputed > 0.5 ? mix(uNeutral, signColor, pow(abs(vValue), 0.6)) : uEmpty;
     vec3 color = base * (0.42 + 0.68 * diffuse) + vec3(specular * 0.18);
+    // Effects: large values emit light.
+    color += base * uGlow * 1.0 * smoothstep(0.5, 1.0, abs(vValue)) * vComputed;
     if (vFocus < 0.5) color = mix(color, uBackground, uDim);
     if (vMarked > 0.5 && vComputed > 0.5) color = mix(color, uHighlight, 0.35);
     if (vHover > 0.5) color = mix(color, uHighlight, 0.22);
@@ -110,6 +114,7 @@ export function createCellMaterial(): THREE.ShaderMaterial {
       uBackground: { value: new THREE.Color() },
       uHighlight: { value: new THREE.Color(1, 1, 1) },
       uDim: { value: 0.55 },
+      uGlow: FX.uGlow,
     },
   });
 }
@@ -163,6 +168,7 @@ const ARC_VERTEX = /* glsl */ `
 const ARC_FRAGMENT = /* glsl */ `
   uniform vec3 uHighlight;
   uniform float uDimAlpha;
+  uniform float uGlow;
   varying vec3 vColor;
   varying float vAlpha;
   varying float vSide;
@@ -181,6 +187,8 @@ const ARC_FRAGMENT = /* glsl */ `
     }
     // Brighter towards the reading token: information flows from the key (start) to the query (end).
     color *= 0.8 + 0.3 * vAlong;
+    // Effects: arcs are made of light, as bright as they are opaque (their opacity encodes the weight).
+    color *= 1.0 + uGlow * (0.6 + 1.6 * vAlong) * vAlpha * (vEmphasis < 0.5 ? 0.0 : 1.0);
     if (alpha < 0.004) discard;
     gl_FragColor = vec4(color, alpha);
     #include <colorspace_fragment>
@@ -200,6 +208,7 @@ export function createArcMaterial(): THREE.ShaderMaterial {
       uHover: { value: -1 },
       uHighlight: { value: new THREE.Color(1, 1, 1) },
       uDimAlpha: { value: 0.18 },
+      uGlow: FX.uGlow,
     },
   });
 }
